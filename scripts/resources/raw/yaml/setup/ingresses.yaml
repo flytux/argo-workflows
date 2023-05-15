@@ -1,73 +1,24 @@
 ---
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: traefik-dashboard
-  namespace: kube-system
-spec:
-  entryPoints:
-    - web
-  routes:
-    - kind: Rule
-      match: Host(`local.k3s`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
-      services:
-        - kind: TraefikService
-          name: api@internal
-          namespace: kube-system
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: argo-prefix
+  name: argo-server
   namespace: argo
-spec:
-  stripPrefix:
-    prefixes:
-    - /argo/
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
-metadata:
-  name: argo
-  namespace: argo
-spec:
-  entryPoints:
-    - web
-    - websecure
-  routes:
-    - match: Host(`local.k3s`) && PathPrefix(`/argo`)
-      kind: Rule
-      middlewares:
-        - name: argo-prefix
-          namespace: argo
-      services:
-        - name: atlantbh-argo-workflows-server
-          port: 80
-          namespace: argo
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
-metadata:
-  name: argo-events-webhook
-  namespace: argo-events
-spec:
-  entryPoints:
-    - web
-    - websecure
-  routes:
-    - match: Host(`local.k3s`) && PathPrefix(`/trigger-workflow`)
-      kind: Rule
-      services:
-        - name: webhook-eventsource-svc
-          port: 12000
-          namespace: argo-events
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: go-api-prefix
-  namespace: go-api
-spec:
-  stripPrefix:
-    prefixes:
-      - /go-api
+  annotations:
+    # https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/
+    ingress.kubernetes.io/proxy-body-size: 100M
+    kubernetes.io/ingress.class: "nginx"
+    ingress.kubernetes.io/app-root: "/"
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+spec:    
+  rules:
+  - host: argo-workflow.local.rke2
+    http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: argo-server
+            port:
+              number: 2746
